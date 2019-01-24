@@ -1,0 +1,56 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "C_Cpp.addWorkspaceRootToIncludePath": false,
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
+    "files.associations": {
+        "optional": "cpp",
+        "string_view": "cpp",
+        "*.h": "c",
+        "*.c": "c"
+    },
+    "files.exclude": {
+        "**/docs": true,
+        "**/TARGET_Analog_Devices": true,
+        "**/TARGET_ARM_FM": true,
+        "**/TARGET_ARM_SSG": true,
+        "**/TARGET_Atmel": true,
+        "**/TARGET_Cypress": true,
+        "**/TARGET_Freescale": true,
+        "**/TARGET_Maxim": true,
+        "**/TARGET_NORDIC": true,
+        "**/TARGET_NUVOTON": true,
+        "**/TARGET_NXP": true,
+        "**/TARGET_ONSEMI": true,
+        "**/TARGET_Realtek": true,
+        "**/TARGET_RENESAS": true,
+        "**/TARGET_Silicon_Labs": true,
+        "**/TARGET_TOSHIBA": true,
+        "**/TARGET_ublox": true,
+        "**/TARGET_WICED": true,
+        "**/TARGET_WIZNET": true,
+        "**/TEST_APPS": true,
+        "**/TESTS": true,
+        "**/tools": true,
+        "**/UNITTESTS": true
+    },
+    "files.watcherExclude": {
+        "**/TARGET_Analog_Devices": true,
+        "**/TARGET_ARM_FM": true,
+        "**/TARGET_ARM_SSG": true,
+        "**/TARGET_Atmel": true,
+        "**/TARGET_Cypress": true,
+        "**/TARGET_Freescale": true,
+        "**/TARGET_Maxim": true,
+        "**/TARGET_NORDIC": true,
+        "**/TARGET_NUVOTON": true,
+        "**/TARGET_NXP": true,
+        "**/TARGET_ONSEMI": true,
+        "**/TARGET_Realtek": true,
+        "**/TARGET_RENESAS": true,
+        "**/TARGET_Silicon_Labs": true,
+        "**/TARGET_TOSHIBA": true,
+        "**/TARGET_ublox": true,
+        "**/TARGET_WICED": true,
+        "**/TARGET_WIZNET": true
+      }
+}
