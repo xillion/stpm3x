@@ -14,7 +14,7 @@ typedef enum
 class Stpm3x 
 {
 public:
-    Stpm3x(RawSerial *_serial, stpm3x_pinout_t pinout):INT1_PIN();
+    Stpm3x(RawSerial *_serial, stpm3x_pinout_t pinout):EN_PIN(pinout->pins[STPM3X_EN].pin);
     virtual ~Stpm3x();
 
     void reset(stmp3x_reset_t);
@@ -45,7 +45,7 @@ private:
     stpm3x_pinout_t *pinout;
     CircularBuffer<unsigned char, 10> txBuf;
     CircularBuffer<unsigned char, 10> rxBuf;
-    DigitalOut EN_PIN(pinout->pins[STPM3X_EN].pin);
+    DigitalOut EN_PIN;
     DigitalOut SYN_PIN(pinout->pins[STPM3X_SYN].pin);
     DigitalOut CS_PIN(pinout->pins[STPM3X_SCS].pin);
     InterruptIn INT1_PIN();

@@ -48,8 +48,8 @@ typedef enum
 typedef struct
 {
   PinName pin;
-  int     low;
-  int     high;
+  int     RESET;
+  int     SET;
 }stpm3x_pin_t;
 
 typedef struct

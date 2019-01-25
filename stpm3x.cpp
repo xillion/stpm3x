@@ -24,55 +24,142 @@ void Metro_HAL_STPM_SYN_single_pulse()
 {
  
     /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_RESET);
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_SET);
- 
-  HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
-
+  CS_PIN = pinout->pins[STPM3X_SCS].SET;
+  SYN_PIN = pinout->pins[STPM3X_SYN].SET;
   /* reset SYNC pulse */
-  HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_RESET);
-
-  wait_us(100); 
+    wait_us(100); 
   /* set SYNC pulse */
-  HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
-  wait_us(100);
- 
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_RESET);
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_SET);
+  SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+   wait_us(100);
+  CS_PIN = pinout->pins[STPM3X_SCS].RESET;
+}
+
+void stpm3x::powerup()
+{
+    /* set UART mode at STPM3x power up, we have to set SS pin */
+    Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,CS_PIN_ACTIVE);
+
+    /* set ENable Pin configured as low in CubeMX*/
+    wait_us(1000); 
+    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_INACTIVE);
+    wait_us(1000); 
+    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_ACTIVE);
+    wait_us(1000); 
 
 }
 
-/**
-  * @brief  This function send 3 pulses on SYN signal to golbal reset STPM external chips
-  * @param  METRO_NB_Device_t in_Metro_Device_Id
-  * @retval None
-  */
-void Metro_HAL_STPM_SYN_reset_3_pulses()
+void stpm3x::powerdown()
 {
 
-  /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_RESET);
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_SET);
-
-  HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
-  
-  for(uint8_t i=0;i<=2; i++) 
-  {
-    /* reset SYNC pulse */
-    HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_RESET);
-
-    Metro_HAL_WaitMicroSecond(100); 
-    /* set SYNC pulse */
-    HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
-    Metro_HAL_WaitMicroSecond(100); 
-
-  }
-
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_RESET);
-  Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,GPIO_PIN_SET);
-
 }
 
+void stpm3x::reset(stmp3x_reset_t reset)
+{
+    uint32_t address;
+    if (reset ==  RESET_SW)
+    {
+      /* Set the reset bit in the  DSP Control Register 3 of stpm requested(STPM) */
+      /* First put the bit inside internal struct */
+      REGS.DSPCTRL3.SW_RST = 1;
+      address = (uint32_t)((uint8_t*)&REGS.DSPCTRL3 - (uint8_t*)&REGS.DSPCTRL1)/2;
+      //dspctrl3_t *t =  ((dspctrl3_t *) &REGS.DSPCTRL3);
+      /* Write blocks inside external chip */
+      //stpm3x_address_t address, uint8_t length = 1, uint32_t *pdata, uint8_t in_wait_stpm
+      write(address,1,(uint32_t *)&REGS.DSPCTRL3,STPM_WAIT);
+    }
+    /* reset SYN hardware is requested, send 3 pulses to SYN signal pin */
+    else if (reset ==  RESET_HW)
+    {
+
+      /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
+          /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
+      CS_PIN = pinout->pins[STPM3X_SCS].SET;
+      SYN_PIN = pinout->pins[STPM3X_SYN].SET;
+      /* reset SYNC pulse */
+        wait_us(100); 
+      /* set SYNC pulse */
+      SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+      wait_us(100);
+      CS_PIN = pinout->pins[STPM3X_SCS].RESET;
+
+
+      HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
+
+      for(uint8_t i=0;i<=2; i++) 
+      {
+        /* reset SYNC pulse */
+        SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+        wait_us(100);
+        SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+        wait_us(100);
+      }
+      CS_PIN = pinout->pins[STPM3X_SCS].RESET;
+    }
+};
+
+
+
+uint8_t stpm3x::byteReverse(uint8_t in_byte)
+{
+    in_byte = ((in_byte >> 1) & 0x55) | ((in_byte << 1) & 0xaa);
+    in_byte = ((in_byte >> 2) & 0x33) | ((in_byte << 2) & 0xcc);
+    in_byte = ((in_byte >> 4) & 0x0F) | ((in_byte << 4) & 0xF0);
+    return in_byte;
+};
+
+uint8_t stpm3x::crcByte (uint8_t in_Data, uint8_t CRC_u8Checksum)
+{
+    uint8_t loc_u8Idx;
+    uint8_t loc_u8Temp;
+    loc_u8Idx=0;
+    while(loc_u8Idx<8)
+    {
+        loc_u8Temp=in_Data^CRC_u8Checksum;
+        CRC_u8Checksum<<=1;
+        if(loc_u8Temp&0x80)
+        {
+            CRC_u8Checksum^=CRC_8;
+        }
+        in_Data<<=1;
+        loc_u8Idx++;
+    }
+    return CRC_u8Checksum;
+};
+
+uint8_t stpm3x::crcFrame(uint8_t *pBuf)
+{
+    uint8_t i, CRC_u8Checksum = 0x00;
+
+    for (i=0; i<STPM3x_FRAME_LEN-1; i++)
+    {
+    	CRC_u8Checksum = crcByte(pBuf[i], CRC_u8Checksum);
+    }
+
+    return CRC_u8Checksum;
+};
+
+stpm3x_err_t stpm3x::tranceiveHandler(void)
+{
+    while(!txBuff.empty())
+    {
+        uint8_t data;
+        txBuff.pop(data);
+        rxBuff.push(byteTranceive(data));
+    }
+    return (no_err);
+};
+
+
+uint8_t stpm3x::byteTranceive(uint8_t data)
+{
+    serial.putc((char)data);
+    return (uint8_t)serial.getc();
+};
+
+/**
+ * 
+ * 
+*/
 /*
 
 */
@@ -201,7 +288,7 @@ uint8_t stpm3x::writeblock(uint8_t Offset, uint8_t BlockNum, uint32_t * in_p_Buf
 }
 
 /**
-  * @brief      This function set latch inside Metrology devices
+  * @brief     This function set latch inside Metrology devices
                Latch the device registers according to the latch type selection driving SYN pin
                or writing S/W Latchx bits in the DSP_CR3 register
                or setting auto-latch by S/W Auto Latch bit in the DSP_CR3 register
@@ -255,7 +342,7 @@ void stpm3x::latch(METRO_Latch_Device_Type_t in_Metro_Latch_Device_Type)
 
       }
       break;
-      case LATCH_SYN_SCS:
+      case LATCH_HW:
       {
         /* Latch external chip with syn PIN : 1 pulses is needed to latch */
         Metro_HAL_STPM_SYN_single_pulse(in_Metro_Device_Id);
@@ -276,107 +363,6 @@ void stpm3x::latch(METRO_Latch_Device_Type_t in_Metro_Latch_Device_Type)
 
 }
 
-void stpm3x::powerup()
-{
-    /* set UART mode at STPM3x power up, we have to set SS pin */
-    Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,CS_PIN_ACTIVE);
-
-    /* set ENable Pin configured as low in CubeMX*/
-    wait_us(1000); 
-    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_INACTIVE);
-    wait_us(1000); 
-    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_ACTIVE);
-    wait_us(1000); 
-
-}
-
-void stpm3x::powerdown()
-{
-
-}
-
-void stpm3x::reset(stmp3x_reset_t reset)
-{
-    uint32_t address;
-    if (reset ==  RESET_SW)
-    {
-      /* Set the reset bit in the  DSP Control Register 3 of stpm requested(STPM) */
-      /* First put the bit inside internal struct */
-      REGS.DSPCTRL3.SW_RST = 1;
-      address = (uint32_t)((uint8_t*)&REGS.DSPCTRL3 - (uint8_t*)&REGS.DSPCTRL1)/2;
-      //dspctrl3_t *t =  ((dspctrl3_t *) &REGS.DSPCTRL3);
-      /* Write blocks inside external chip */
-      //stpm3x_address_t address, uint8_t length = 1, uint32_t *pdata, uint8_t in_wait_stpm
-      write(ADDR_DSPCTRL3,1,(uint32_t *)&REGS.DSPCTRL3,STPM_WAIT);
-
-
-    }
-    /* reset SYN hardware is requested, send 3 pulses to SYN signal pin */
-    else if (reset ==  RESET_HW)
-    {
-    /* Reset ext STPMs with syn PIN : 3 pulses are needed to reset STPM chips */
-    Metro_HAL_STPM_SYN_reset_3_pulses(in_Metro_Device_Id);
-    }
-};
-
-
-
-uint8_t stpm3x::byteReverse(uint8_t in_byte)
-{
-    in_byte = ((in_byte >> 1) & 0x55) | ((in_byte << 1) & 0xaa);
-    in_byte = ((in_byte >> 2) & 0x33) | ((in_byte << 2) & 0xcc);
-    in_byte = ((in_byte >> 4) & 0x0F) | ((in_byte << 4) & 0xF0);
-    return in_byte;
-};
-
-uint8_t stpm3x::crcByte (uint8_t in_Data, uint8_t CRC_u8Checksum)
-{
-    uint8_t loc_u8Idx;
-    uint8_t loc_u8Temp;
-    loc_u8Idx=0;
-    while(loc_u8Idx<8)
-    {
-        loc_u8Temp=in_Data^CRC_u8Checksum;
-        CRC_u8Checksum<<=1;
-        if(loc_u8Temp&0x80)
-        {
-            CRC_u8Checksum^=CRC_8;
-        }
-        in_Data<<=1;
-        loc_u8Idx++;
-    }
-    return CRC_u8Checksum;
-};
-
-uint8_t stpm3x::crcFrame(uint8_t *pBuf)
-{
-    uint8_t i, CRC_u8Checksum = 0x00;
-
-    for (i=0; i<STPM3x_FRAME_LEN-1; i++)
-    {
-    	CRC_u8Checksum = crcByte(pBuf[i], CRC_u8Checksum);
-    }
-
-    return CRC_u8Checksum;
-};
-
-stpm3x_err_t stpm3x::tranceiveHandler(void)
-{
-    while(!txBuff.empty())
-    {
-        uint8_t data;
-        txBuff.pop(data);
-        rxBuff.push(byteTranceive(data));
-    }
-    return (no_err);
-};
-
-
-uint8_t stpm3x::byteTranceive(uint8_t data)
-{
-    serial.putc((char)data);
-    return (uint8_t)serial.getc();
-};
 
 //**************************************************************
 
