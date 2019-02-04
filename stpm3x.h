@@ -11,6 +11,14 @@ typedef enum
     no_err
 }stpm3x_err_t;
 
+typedef struct 
+{
+    uint32_t isPOWERED  :4;  //
+    uint32_t isSELECTED :4;  //
+    uint32_t isUPDATED  :4;  //
+    uint32_t isINITED   :4;  //
+} stpm_state_t;
+
 class Stpm3x 
 {
 public:
@@ -41,6 +49,7 @@ private:
                 Private variable declaration
 ***********************************************************************/
     stpm_regs_t REGS;
+    stpm_state_t stpm3x_state;
     RawSerial *serial;
     stpm3x_pinout_t *pinout;
     CircularBuffer<unsigned char, 10> txBuf;

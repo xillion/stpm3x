@@ -38,14 +38,14 @@ void stpm3x::powerup()
 {
     /* set UART mode at STPM3x power up, we have to set SS pin */
     Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,CS_PIN_ACTIVE);
+    CS_PIN = pinout->pins[STPM3X_SCS].SET;
 
     /* set ENable Pin configured as low in CubeMX*/
     wait_us(1000); 
-    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_INACTIVE);
+    EN_PIN = pinout->pins[STPM3X_EN].RESET;
     wait_us(1000); 
-    Metro_HAL_EN_EXT_Device(in_Metro_Device_Id,EN_PIN_ACTIVE);
+    EN_PIN = pinout->pins[STPM3X_EN].SET;
     wait_us(1000); 
-
 }
 
 void stpm3x::powerdown()
@@ -72,7 +72,6 @@ void stpm3x::reset(stmp3x_reset_t reset)
     {
 
       /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
-          /* Before to toogle SYN pin , we have to Clear  SS  pin ( Chip select to Ext device ) */
       CS_PIN = pinout->pins[STPM3X_SCS].SET;
       SYN_PIN = pinout->pins[STPM3X_SYN].SET;
       /* reset SYNC pulse */
@@ -82,15 +81,12 @@ void stpm3x::reset(stmp3x_reset_t reset)
       wait_us(100);
       CS_PIN = pinout->pins[STPM3X_SCS].RESET;
 
-
-      HAL_GPIO_WritePin(SYN_GPIO_type,SYN_GPIO_pin,GPIO_PIN_SET);
-
       for(uint8_t i=0;i<=2; i++) 
       {
         /* reset SYNC pulse */
         SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
         wait_us(100);
-        SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+        SYN_PIN = pinout->pins[STPM3X_SYN].SET;
         wait_us(100);
       }
       CS_PIN = pinout->pins[STPM3X_SCS].RESET;
@@ -217,9 +213,7 @@ uint32_t stpm3x::write(stpm3x_address_t address, uint8_t length = 1, uint32_t *p
 
      retSize = retSize + STPM3x_FRAME_LEN;
           
-
-     Metro_HAL_CSS_EXT_Device(in_Metro_Device_Id,CS_PIN_ACTIVE);
-
+     CS_PIN = pinout->pins[STPM3X_SCS].SET;
      /* Send  Data */
      tranceiveHandler();
      //Metro_HAL_UsartTxStart(in_Metro_Device_Id);
@@ -227,17 +221,7 @@ uint32_t stpm3x::write(stpm3x_address_t address, uint8_t length = 1, uint32_t *p
 /*
 ToDo enable interrupt for rx
 */
-
-     
-   /* Reset Fields transfer */
-   Metro_HAL_reset_transfer_context(in_Metro_Device_Id);
-
-
-   } /* end For Nb blocks loop */
-
-
-   /* Reset RX/TX Buffers */
-
+} /* end For Nb blocks loop */
    return(retSize);
 };
 
@@ -254,15 +238,15 @@ uint32_t stpm3x::read(uint8_t address, uint8_t length, uint32_t *pdata)
   */
 uint8_t stpm3x::readblock(uint8_t Offset, uint8_t BlockNum, uint32_t * out_p_Buffer)
 {
-  uint32_t tmp_addr = 0x0;
+  uint32_t address = 0x0;
   uint8_t  error=0;
 
       /* Calculate the base address to read inisde STPM chip  */
      /* the offset should be provided (2 bytes -> 16 bits) format for STPM */
-      tmp_addr = (uint32_t)&METRO_STPM->DSPCTRL1 + Offset;
+      address = (uint32_t)&METRO_STPM->DSPCTRL1 + Offset;
 
       /* read blocks from external chip */
-      Read(in_Metro_Device_Id,(uint8_t*)&tmp_addr,BlockNum,out_p_Buffer);
+      read(in_Metro_Device_Id,(uint8_t*)&address,BlockNum,out_p_Buffer);
 
    return error;
 }
@@ -274,15 +258,15 @@ uint8_t stpm3x::readblock(uint8_t Offset, uint8_t BlockNum, uint32_t * out_p_Buf
   */
 uint8_t stpm3x::writeblock(uint8_t Offset, uint8_t BlockNum, uint32_t * in_p_Buffer)
 {
-  uint32_t tmp_addr = 0x0;
+  uint32_t address = 0x0;
   uint32_t ret_size;
 
   /* Calculate the base address to read inisde STPM chip  */
   /* the offset should be provided in 2 bytes format (16 bits by 16 bits) for STPM */
-  tmp_addr = (uint32_t)&METRO_STPM->DSPCTRL1 + (Offset);
+  address = (uint32_t)&METRO_STPM->DSPCTRL1 + (Offset);
 
    /* write blocks from external chip */
-  ret_size = write(in_Metro_Device_Id,(uint8_t*)&tmp_addr,BlockNum,in_p_Buffer,STPM_WAIT); 
+  ret_size = write(in_Metro_Device_Id,(uint8_t*)&address,BlockNum,in_p_Buffer,STPM_WAIT); 
   
   return(ret_size);
 }
@@ -297,13 +281,11 @@ uint8_t stpm3x::writeblock(uint8_t Offset, uint8_t BlockNum, uint32_t * in_p_Buf
   * @param[out]  none
   * @retval
   */
-void stpm3x::latch(METRO_Latch_Device_Type_t in_Metro_Latch_Device_Type)
+void stpm3x::latch(stpm3x_latch_t Latch_Device_Type)
 {
-  uint32_t tmp_addr = 0;
+  uint32_t address = 0;
 
-  if(in_Metro_Device_Id < NB_MAX_DEVICE)
-  {
-    switch (in_Metro_Latch_Device_Type)
+  switch (Latch_Device_Type)
     {
 
       case LATCH_AUTO:
@@ -345,7 +327,14 @@ void stpm3x::latch(METRO_Latch_Device_Type_t in_Metro_Latch_Device_Type)
       case LATCH_HW:
       {
         /* Latch external chip with syn PIN : 1 pulses is needed to latch */
-        Metro_HAL_STPM_SYN_single_pulse(in_Metro_Device_Id);
+        CS_PIN = pinout->pins[STPM3X_SCS].SET;
+        SYN_PIN = pinout->pins[STPM3X_SYN].SET;
+        /* reset SYNC pulse */
+          wait_us(100); 
+        /* set SYNC pulse */
+        SYN_PIN = pinout->pins[STPM3X_SYN].RESET;
+        wait_us(100);
+        CS_PIN = pinout->pins[STPM3X_SCS].RESET;
       }
       break;
     }
@@ -359,7 +348,6 @@ void stpm3x::latch(METRO_Latch_Device_Type_t in_Metro_Latch_Device_Type)
 
     read(in_Metro_Device_Id,(uint8_t*)&tmp_addr,METRO_STPM_DATA_REG_NB_BLOCKS,&p_Metro_Device_Config[in_Metro_Device_Id].metro_stpm_reg.UARTSPISR);
 
-  }
 
 }
 
